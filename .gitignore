@@ -1,4 +1,5 @@
 .DS_Store
+diff.txt
 *.log
 *.pyc
 *.pyo
