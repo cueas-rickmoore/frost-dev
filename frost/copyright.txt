@@ -4,8 +4,7 @@
 # Life Sciences (CALS)
 # All Rights Reserved
 #
-# FROST - apple & grape freeze risk/damage estimation
-#         apple also models phenological stage development
+# FROST - models for estimation of frost damage to apples and grapes
 #
 # Principal Developer : Rick Moore
 # 
