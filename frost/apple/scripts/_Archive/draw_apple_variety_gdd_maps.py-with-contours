@@ -1,0 +1,143 @@
+#!/Users/rem63/venvs/frost/bin/python
+
+import os, sys
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+ONE_DAY = relativedelta(days=1)
+
+import numpy as N
+
+from atmosci.utils.timeutils import asAcisQueryDate
+
+from frost.functions import importFromConfig, nameToFilepath
+
+from frost.apple.functions import mapFilepath, mapWorkingDir
+from frost.apple.variety.maps import drawFilledContours
+from frost.apple.factory import AppleGridFactory
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option('-z', action='store_true', dest='test_file', default=False)
+
+options, args = parser.parse_args()
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+test_file = options.test_file
+
+# apple variety config
+variety = importFromConfig('crops.apple.variety.%s.self' % args[0])
+# chill model
+model = importFromConfig('crops.apple.chill.%s.self' % args[1])
+
+# get the date
+date_args = len(args[2:])
+if date_args >= 3:
+    year = int(args[2])
+    month = int(args[3])
+    day = int(args[4])
+    start_date = datetime(year,month,day)
+    if date_args == 3: end_date = None
+    elif date_args == 4:
+        end_date = start_date + relativedelta(days=int(args[5])-1)
+    elif date_args == 6:
+        year = int(args[5])
+        month = int(args[6])
+        day = int(args[7])
+        end_date = datetime(year,month,day)
+    else:
+        errmsg = 'Invalid number of date arguments (%d).' % date_args
+        raise ValueError, errmsg
+else:
+    errmsg = 'Invalid number of date arguments (%d).' % date_args
+    raise ValueError, errmsg
+
+if end_date is None: past_date = start_date + ONE_DAY
+else: past_date = end_date + ONE_DAY
+
+factory = AppleGridFactory()
+target_year = factory.getTargetYear(start_date)
+
+# set the map directory path and the template for the map file name
+map_dirpath = mapWorkingDir(target_year, variety.name, model.name, 'gdd',
+                            None, None, test_file)
+if not os.path.exists(map_dirpath):
+    os.makedirs(map_dirpath)
+
+file_template = importFromConfig('crops.apple.variety.mapfile_template')
+file_template = file_template % { 'date_str':'%s', 'map_type':'GDD',
+                                  'variety':nameToFilepath(variety.name),
+                                  'model':nameToFilepath(model.name),
+                                }
+
+# set the map title template
+title_template = importFromConfig('crops.apple.variety.gdd_map_title')
+title_template = title_template % { 'thresholds':'%s',
+                                    'variety':variety.description,
+                                    'model':model.description,
+                                  }
+title_template += '\n%s'
+
+# set GDD map specific options
+color_map = importFromConfig('crops.apple.variety.gdd_map_colormap')
+map_options = { 'map_type':'gdd', 'cmap':color_map, 'colorbar':True }
+# create contour interval switch based on model petal fall GDD threshold
+#petalfall_threshold = variety.stage_thresholds[-1]
+#contour_threshold = (petalfall_threshold / 100) * 100 + 100
+
+# contour intervals for below/above petal fall
+#lo_interval, hi_interval, hi_max_contour =\
+#             importFromConfig('crops.apple.variety.gdd_contour_factors')
+
+#lo_contours = tuple( [ n for n in range(0, contour_threshold, lo_interval) ] )
+
+#hi_min_contour = (petalfall_threshold / 100) * 100
+#hi_contours =\
+#tuple( [ n for n in range(hi_min_contour, hi_max_contour, hi_interval) ] )
+
+# get date indepenedent attributes and grids from the stage grid manager
+manager =\
+factory.getVarietyGridManager(target_year, variety.name, 'r', test_file)
+gdd_ghresholds = manager.gddThresholds(model.name)
+lats = manager.lats
+lons = manager.lons
+total_num_nodes = lons.size
+
+for lo_gdd_th, hi_gdd_th in gdd_ghresholds:
+    thresholds = '%d<AVGT>%d' % (lo_gdd_th, hi_gdd_th)
+
+    date = start_date
+    while date < past_date:
+        gdd_grid = manager.getGdd(model.name, lo_gdd_th, hi_gdd_th,
+                                  'accumulated', date)
+
+        # figure out which contour set to use
+        #num_nans = len(N.where(N.isnan(gdd_grid))[0])
+        #good_nodes = float(total_num_nodes - num_nans)
+        #num_above_petalfall = len(N.where(gdd_grid > petalfall_threshold)[0])
+        #percent = float(num_above_petalfall) / good_nodes
+        #print 'percent above petal fall', percent
+
+        #max_gdd = N.nanmax(gdd_grid)
+        # figure out what the contour levels are
+        #if max_gdd < contour_threshold: contours = lo_contours
+        #if percent > 0.25: contours = hi_contours
+        #else: contours = lo_contours
+        min_contour = max((int(N.nanmin(gdd_grid)) / 100) - 100, 0)
+        max_contour = min(int((N.nanmax(gdd_grid)) / 100) + 100, 1800)
+        interval = (max_contour - min_contour) / 10
+        contours = tuple( [ n for n in range(min_contour, max_contour, interval) ] )
+
+        #map_options['contourbounds'] = contours
+        map_filename = file_template % asAcisQueryDate(date)
+        map_options['outputfile'] = os.path.join(map_dirpath, map_filename)
+        date_str = date.strftime('%B %d, %Y')
+        map_options['title'] = title_template % (thresholds, date_str)
+
+        drawFilledContours(gdd_grid, lats, lons, **map_options)
+
+        date += ONE_DAY
+

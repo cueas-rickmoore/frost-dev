@@ -334,7 +334,7 @@ class GrapeModelMixin:
                 acclimation[day] = acclimation_day
                 deacclimation[day] = deacclimation_day
                 hardiness[day] = _hardiness_
-                _prev_hardiness_ = hardiness_day
+                _prev_hardiness_ = _hardiness_
 
         return hardiness, acclimation, deacclimation
 
@@ -419,3 +419,4 @@ class GrapeModelMixin:
 
         return acclimation, deacclimation, hardiness
 
+GrapeModelMethods = GrapeModelMixin
