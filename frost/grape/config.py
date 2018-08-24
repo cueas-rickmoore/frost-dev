@@ -35,7 +35,7 @@ GRAPE_KILL_LEVELS = ( ('(diff >= 0) & (diff <= 0.5)', 'Low', '#1E90FF'),
 
 GRAPE = ConfigObject('grape', None, 'chill', 'datasets', 'descriptons',
                      'dormancy', 'groups', 'packers', 'unpackers', 'variety')
-GRAPE.end_day = (5,15) 
+GRAPE.end_day = (6,30)
 GRAPE.start_day = (9,15)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
