@@ -49,7 +49,10 @@ class VarietyGridAccessMixin:
                            start_date, end_date=None, **kwargs):
         full_path = self.modelDatasetPath(model_name, lo_gdd_th, hi_gdd_th,
                                           group, dataset)
-        return self._getData(full_path, start_date, end_date, **kwargs)
+        if end_date is None:
+            return self.getDataForDate(full_path, start_date, **kwargs)
+        else: 
+            return self.getDateSlice(full_path, start_date, end_date, **kwargs)
 
     def getProvenance(self, model_name, lo_gdd_th, hi_gdd_th, group,
                            start_date, end_date=None):

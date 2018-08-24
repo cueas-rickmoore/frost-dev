@@ -26,7 +26,7 @@ def animationFilename(target_year, variety, model_name, map_group, map_type,
     else:
         template = fromConfig('crops.apple.filenames.animation.%s' % map_group)
 
-    if map_type == 'gdd': params['map_type'] = 'GDD'
+    if map_type in ('GDD','gdd','Gdd'): params['map_type'] = 'GDD'
     else: params['map_type'] = nameToFilepath(map_type)
 
     return template % params
@@ -78,7 +78,7 @@ def mapFilename(date, variety, model_name, map_group, map_type,
     else:
         template = fromConfig('crops.apple.filenames.maps.%s' % map_group)
 
-    if map_type == 'gdd': params['map_type'] = 'GDD'
+    if map_type in ('GDD','gdd','Gdd'): params['map_type'] = 'GDD'
     else: params['map_type'] = nameToFilepath(map_type)
 
     if lo_gdd_th is not None:
@@ -175,7 +175,8 @@ def webMapFilename(date, variety, model_name, map_group, map_type,
     else:
         template = \
         fromConfig('crops.apple.filenames.%s.%s' % (config_key, map_group))
-    params['map_type'] = nameToFilepath(map_type)
+    if map_type in ('gdd','GDD'): params['map_type'] = 'GDD'
+    else: params['map_type'] = nameToFilepath(map_type)
     return template % params
 
 def webMapFilepath(date, variety, model_name, map_group, map_type,
