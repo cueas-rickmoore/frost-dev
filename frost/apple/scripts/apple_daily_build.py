@@ -359,6 +359,7 @@ else:
     errmsg = 'Invalid number of date arguments (%d).' % num_date_args
     raise ValueError, errmsg
 target_year = targetYearFromDate(start_date)
+if target_year is None: exit()
 
 if end_date is None:
     end_date = start_date + relativedelta(days=num_days-1)

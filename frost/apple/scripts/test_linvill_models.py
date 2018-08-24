@@ -9,7 +9,7 @@ ONE_DAY = relativedelta(days=1)
 
 import numpy as N
 
-from atmosci.agg.linvill.grid import Linvill3DGridModel
+from atmosci.ag.linvill.grid import Linvill3DGridModel
 from atmosci.utils.timeutils import lastDayOfMonth
 
 from frost.apple.factory import AppleGridFactory
@@ -84,11 +84,11 @@ if maxt.ndim == 3 and maxt.shape[0] == 1:
 maxt_nan_indexes = N.where(N.isnan(maxt))
 
 # interpolate hourly temperatures from mint,maxt using Linvill algorithm
-print 'running agg version'
-agg_model = Linvill3DGridModel()
-agg_hourly = agg_model.tempGridToHourly(start_date, lats, mint, maxt, 'F')
-print agg_hourly.shape
-print agg_hourly[0,:,120:125,190:192]
+print 'running ag version'
+ag_model = Linvill3DGridModel()
+ag_hourly = ag_model.tempGridToHourly(start_date, lats, mint, maxt, 'F')
+print ag_hourly.shape
+print ag_hourly[0,:,120:125,190:192]
 
 print 'running frost version'
 frost_hourly = temp3DGridToHourly(dates, lats, mint, maxt, 'F')

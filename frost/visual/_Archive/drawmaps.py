@@ -12,6 +12,9 @@ matplotlib.use("Agg")
 from matplotlib import pyplot
 from matplotlib import cm
 from mpl_toolkits.basemap import Basemap
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Rectangle, PathPatch
+from matplotlib.path import Path
 
 from frost.functions import fromConfig
 
@@ -231,31 +234,37 @@ def plot_setup(lats, lons, map_options):
         ydiff = y_max-y_min
         extent = (x_max-0.30*xdiff, x_max-0.01*xdiff,
                   y_min+0.01*ydiff, y_min+0.15*ydiff)
-        pyplot.imshow(img, extent=extent)
+        pyplot.imshow(img, extent=extent, zorder=10)
 
     # add title
-    title = map_options['title']
-    title2 = map_options.get('title2',None)
-    if title2 is not None: title += '\n%s' % title2
-    date = map_options.get('date', None)
-    if date is not None:
-        if isinstance(date, basestring): title += '\n%s' % date
-        else: title += '\n%s' % date.strftime('%B %d, %Y')
+    title = map_options.get('title',None)
+    if title is not None:
+        title2 = map_options.get('title2',None)
+        if title2 is not None: title += '\n%s' % title2
+        date = map_options.get('date', None)
+        if date is not None:
+            if isinstance(date, basestring): title += '\n%s' % date
+            else: title += '\n%s' % date.strftime('%B %d, %Y')
 
-    title = pyplot.text(x_min + map_options['titlexoffset'] * (x_max-x_min),
-                        y_max - map_options['titleyoffset'] * (y_max-y_min),
-                        title, backgroundcolor="white",
-                        fontsize=map_options['titlefontsize'],
-                        multialignment="center", zorder=10)
-    title_box_alpha = map_options.get('title_box_alpha', None)
-    if title_box_alpha is not None:
-        title.set_bbox({'alpha':title_box_alpha})
+        title = pyplot.text(x_min + map_options['titlexoffset'] * (x_max-x_min),
+                            y_max - map_options['titleyoffset'] * (y_max-y_min),
+                            title, backgroundcolor="white",
+                            fontsize=map_options['titlefontsize'],
+                            multialignment="center", zorder=10)
+        title_box_alpha = map_options.get('title_box_alpha', None)
+        if title_box_alpha is not None:
+            title.set_bbox({'alpha':title_box_alpha})
 
     # add area template image
-    area = map_options.get('area',None)
-    if area is not None:
-        filename = "%s_template.png" % area
-        path = os.path.join(map_options['shapelocation'], filename)
+    area_template = map_options.get('area_template',None)
+    if area_template is None:
+        area = map_options.get('area',None)
+        if area is not None:
+            filename = "%s_template.png" % area
+            path = os.path.join(map_options['shapelocation'], filename)
+        else: path = None
+    else: path = os.path.join(map_options['shapelocation'], area_template)
+    if path is not None:
         img = PIL.Image.open(path)
         pyplot.imshow(img, extent=(x_min+.0015*(x_max-x_min),x_max,y_min,y_max),
                       zorder=3)
@@ -309,42 +318,108 @@ def setupMap(options, lats=None, lons=None):
     if lons is None: return map_options
     else: return map_options, _basemap_, fig
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 def hiResMap(grid, lats, lons, **options):
     map_options, _basemap_, fig = setupMap(options, lats, lons)
 
     apply_mask = options.get('apply_mask', True)
-    _lons_, _lats_, _grid_ = highResolutionGrid(lons, lats, grid, apply_mask)
+    _lons_, _lats_, _grid_ = highResolutionGrid(lats, lons, grid, apply_mask)
     x, y = _basemap_(_lons_, _lats_)
     return map_options, _basemap_, fig, x, y, _grid_
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
+def resolveColorMapOptions(map_options):
+    cmap_options = { }
+    colors = map_options.get('colors', None)
+    if colors is not None: 
+        cmap = matplotlib.colors.ListedColormap(colors)
+    else: cmap = cm.get_cmap(map_options['cmap'])
+    if 'under_color' in map_options: cmap.set_under(map_options['under_color'])
+    if 'over_color' in map_options: cmap.set_over(map_options['over_color'])
+    cmap_options['cmap'] = cmap
+    cmap_options['extend'] = map_options.get('extend','both')
+    return cmap_options
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+def drawColorBar(fig, fig1, map_options):
+    axis1 = fig.add_axes(map_options['cbarsettings'])
+    cbar = fig.colorbar(fig1, axis1, orientation='horizontal')
+    label_size = map_options.get("cbarlabelsize",None)
+    if label_size is not None:
+        cbar.ax.tick_params(labelsize=label_size)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+def drawColoredTextBar(fig, fig1, map_options):
+    labels = map_options["keylabels"]
+    num_labels = len(labels)
+    label_size = map_options['cbarlabelsize']
+    colors = map_options['colors']
+    ypos = map_options['cbarsettings'][1]
+    for indx, label in enumerate(labels):
+        xpos = 0.16 + ( ((2.*indx) + 1.) * (1. / (num_labels*2.)) ) * 0.5
+        fig.text(xpos, ypos, label, color=colors[indx],
+                 fontsize=label_size, horizontalalignment="center")       
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+def drawLabeledColorBar(fig, fig1, map_options):
+    colors = map_options['colors']
+    cbar_specs = map_options['cbarsettings']
+    labels = map_options["keylabels"]
+    num_labels = len(labels)
+    label_colors = map_options.get('label_colors', # else set to black
+                                   ['k' for l in range(num_labels)])
+    font_style = { 'horizontalalignment':'center',
+                   'verticalalignment':'center',
+                   'fontsize':map_options['cbarlabelsize'],
+                   'fontweight':map_options.get('cbarfontweight','normal'),
+                   'fontstyle':map_options.get('cbarfontstyle','normal'),
+                 }
+
+    rect_width = 1. / num_labels
+    rect_half = rect_width / 2.
+    x_left = 0.
+    y_bottom = 0.
+    y_mid = 0.5
+    y_top = 1.
+
+    moves = \
+    [ Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY ]
+
+    axis = \
+    fig.add_axes(cbar_specs, xticks=[], yticks=[], xlim=(0.,1.), ylim=(0.,1.))
+
+    for indx, label in enumerate(labels):
+        x_right = x_left + rect_width
+        corners = [ (x_left, y_bottom), (x_left, y_top), (x_right, y_top),
+                    (x_right, y_bottom), (x_left, y_bottom) ]
+        #print label_colors[indx], corners
+        rectangle = PathPatch(Path(corners, moves), facecolor=colors[indx],
+                              lw=0, zorder=1)
+        axis.add_patch(rectangle)
+        axis.text(x_left+rect_half, y_mid, label, color=label_colors[indx], 
+                  zorder=2, **font_style)
+        x_left = x_right
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 def finishMap(fig, fig1, map_options):
-    if map_options['colorbar']:
-        axis1 = fig.add_axes(map_options['cbarsettings'])
-        cbar = fig.colorbar(fig1, axis1, orientation='horizontal')
-        label_size = map_options.get("cbarlabelsize",None)
-        if label_size is not None:
-            cbar.ax.tick_params(labelsize=label_size)
+    if map_options.get("keylabels",None) is not None:
+        if map_options['colorbar']:
+            drawLabeledColorBar(fig, fig1, map_options)
+        else: drawColoredTextBar(fig, fig1, map_options)
+    elif map_options['colorbar']: drawColorBar(fig, fig1, map_options)
 
-    labels = map_options.get("keylabels",None)
-    if labels is not None:
-        colors = map_options['colors']
-        labelsize = map_options['cbarlabelsize']
-        num_labels = len(labels)
-        ypos = map_options['cbarsettings'][1]
-
-        for i in range(num_labels):
-            xpos = 0.16 + ( ( (2.*i) + 1. ) * ( 1. / (num_labels*2.) ) ) * 0.7
-            fig.text(xpos, ypos, labels[i], color=colors[i],
-                     fontsize=labelsize, horizontalalignment="center")       
-    
     plot_finishup(map_options)
     print 'completed', map_options['outputfile']
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-def highResolutionGrid(lons, lats, grid, apply_mask=False):
+def highResolutionGrid(lats, lons, grid, apply_mask=False):
     from mpl_toolkits.basemap import interp
     from mpl_toolkits.basemap import maskoceans
     # interpolate data to higher resolution grid in order to better match
@@ -375,6 +450,46 @@ def highResolutionGrid(lons, lats, grid, apply_mask=False):
 def drawBlankMap(lats, lons, **options):
     map_options, _basemap_, fig = setupMap(options, lats, lons)
     finishMap(fig, fig, map_options)
+    print 'completed', map_options['outputfile']
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+def drawNoDataMap(**options):
+    map_options = MAP_OPTIONS.copy()
+    map_options.update(options)
+
+    fig = pyplot.figure(figsize=(map_options['size_tup']))
+    fig.patch.set_visible = False
+    axis = fig.gca()
+    axis.xaxis.set_visible(False)
+    axis.yaxis.set_visible(False)
+
+    # add default map image
+    image_filepath = \
+    os.path.join(map_options['shapelocation'], map_options['template_file'])
+    image = pyplot.imread(open(image_filepath))
+    pyplot.imshow(image, zorder=1)
+
+    # overlay map title
+    title = map_options['title']
+    title2 = map_options.get('title2',None)
+    if title2 is not None: title += '\n%s' % title2
+    date = map_options.get('date', None)
+    if date is not None:
+        if isinstance(date, basestring): title += '\n%s' % date
+        else: title += '\n%s' % date.strftime('%B %d, %Y')
+
+    title = pyplot.text(map_options['titlexoffset'] * image.shape[0],
+                        map_options['titleyoffset'] * image.shape[1],
+                        title, backgroundcolor="white",
+                        fontsize=map_options['titlefontsize'],
+                        multialignment="center", zorder=10)
+    title_box_alpha = map_options.get('title_box_alpha', None)
+    if title_box_alpha is not None:
+        title.set_bbox({'alpha':title_box_alpha})
+
+    plot_finishup(map_options)
+    print 'completed', map_options['outputfile']
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -383,12 +498,10 @@ def drawContours(grid, lats, lons, **map_options):
                                                      **map_options)
 
     # draw filled contours
-    colors = options.get('colors', None)
-    if colors is not None: color_option = { 'colors':colors }
-    else: color_option = { 'cmap':cm.get_cmap(options['cmap']) }
+    cmap_options = resolveColorMapOptions(options)
     color_bounds = getBounds(grid, options)
-    fig1 = _basemap_.contour(x, y, _grid_, color_bounds, extend='both',
-                             **color_option)
+    fig1 = _basemap_.contour(x, y, _grid_, color_bounds, **cmap_options)
+    options.update(cmap_options)
     finishMap(fig, fig1, options)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -396,18 +509,15 @@ def drawContours(grid, lats, lons, **map_options):
 def drawFilledContours(grid, lats, lons, **map_options):
     options, _basemap_, fig, x, y, _grid_ = hiResMap(grid, lats, lons,
                                                      **map_options)
-    # get color to use for contours
-    colors = options.get('colors', None)
-    map_args = { 'extend':'both', }
-    if colors is None:
-        map_args['cmap'] = cm.get_cmap(options['cmap'])
-    else: map_args['colors'] = colors
+    # get color mapcontours
+    cmap_options = resolveColorMapOptions(options)
     
     # draw filled contours
     color_bounds = getBounds(grid, options)
     if color_bounds == True:
-        fig1 = _basemap_.contourf(x, y, _grid_, **map_args)
-    else: fig1 = _basemap_.contourf(x, y, _grid_, color_bounds, **map_args)
+        fig1 = _basemap_.contourf(x, y, _grid_, **cmap_options)
+    else: fig1 = _basemap_.contourf(x, y, _grid_, color_bounds, **cmap_options)
+    options.update(cmap_options)
     finishMap(fig, fig1, options)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -416,7 +526,6 @@ def addScatterToMap(map_options, _basemap_, fig, data, lats=None, lons=None,
                     x=None, y=None, markercolor=None):
     marker_size = map_options.get('marker_size', 10)
     if markercolor is None:
-        markercolors = map_options.get('markercolors', None)
         if markercolors is None:
             cmap = map_options.get('cmap','jet')
         else: cmap = matplotlib.colors.ListedColormap(markercolors)
@@ -428,6 +537,8 @@ def addScatterToMap(map_options, _basemap_, fig, data, lats=None, lons=None,
     if x is None: x ,y = _basemap_(lons, lats)
     fig1 = _basemap_.scatter(x, y, s=marker_size, c=data, **plot_args)
     return fig1
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 def drawScatterMap(grid, lats, lons, **map_options):
     options, _basemap_, fig, x, y, _grid_ = hiResMap(grid, lats, lons,

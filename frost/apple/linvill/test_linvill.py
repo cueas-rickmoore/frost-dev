@@ -5,8 +5,8 @@ from datetime import datetime
 
 import numpy as N
 
-from atmosci.agg.linvill import linvill_interpolators
-from atmosci.agg.linvill.art import linvill as arts_linvill
+from atmosci.ag.linvill import linvill_interpolators
+from atmosci.ag.linvill.art import linvill as arts_linvill
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

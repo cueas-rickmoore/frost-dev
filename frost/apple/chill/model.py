@@ -5,7 +5,8 @@ ONE_DAY = relativedelta(days=1)
 
 import numpy as N
 
-from atmosci.agg.gdd import GridGDDCalculator
+from atmosci.ag.gdd import GridGDDCalculator
+from atmosci.utils.timeutils import asDatetimeDate
 
 from frost.functions import fromConfig
 
@@ -92,7 +93,8 @@ class AppleChillModelMixin:
         # attempt to override with actual previous day's accumulation
         if isinstance(date_arg, datetime): date = date_arg
         else: date = date_arg[0]
-        if self.start_date is not None and date > self.start_date:
+        if self.start_date is not None \
+        and asDatetimeDate(date) > self.start_date:
             previous[0] = self.getChill(model_name, 'accumulated',
                                         start_date=date-ONE_DAY)
 
@@ -133,7 +135,7 @@ class AppleChillModelMixin:
 
     def estimateGDD(self, lo_gdd_th, hi_gdd_th, mint, maxt, debug=False):
         gdd_calc = GridGDDCalculator(lo_gdd_th, hi_gdd_th)
-        gdd = gdd_calc.estimateGDD(mint, maxt, debug)
+        gdd = gdd_calc(mint, maxt)
         # make sure there are no GDD where they shouldn't be
         gdd[N.where(N.isnan(maxt))] = N.nan
         return gdd

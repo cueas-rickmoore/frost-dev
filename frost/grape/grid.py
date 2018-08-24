@@ -394,7 +394,7 @@ class GrapeVarietyFileManager(GrapeGridAccessMixin, GrapeModelMixin,
         if filepath is None:
             filepath = varietyFilepath(target_year, variety, test_file)
             FrostGridFileManager.__init__(self, target_year, filepath, mode)
-        else: FrostGridFileManager.__init__(self, traget_year, filepath, mode)
+        else: FrostGridFileManager.__init__(self, target_year, filepath, mode)
 
         self._postInitGrape_(target_year, variety, **kwargs)
 

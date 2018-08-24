@@ -42,43 +42,47 @@ class FrostDataFactory(object):
                     path ='%s.variety.%s' % (path, variety)
                 else: path ='%s.variety.%s' % (path, variety.name)
         else: path = 'default'
-        default = fromConfig(path)
+        config = fromConfig(path)
 
         if isinstance(year_or_start_date, int):
             target_year = year_or_start_date
             start_date = (target_year-1,) + default.start_day
-            start_date = datetime.datetime(*start_date)
             end_date = (target_year,) + default.end_day
-            end_date = datetime.datetime(*end_date)
-
         elif isinstance(year_or_start_date, (tuple,list)):
             _date = datetime.datetime(*year_or_start_date)
-            if year_or_start_date.month < 7:
-                start_date = (_date.year-1,) + default.start_day
-                end_date = (_date.year,) + default.end_day
-            else:
-                start_date = (_date.year,) + default.start_day
-                end_date = (_date.year+1,) + default.end_day
-            start_date = datetime.datetime(*start_date)
-            end_date = datetime.datetime(*_end_date)
-
+            start_date, end_date = self._targetSpanFromDate(_date, config)
         elif isinstance(year_or_start_date, (datetime.datetime,datetime.date)):
-            if year_or_start_date.month < 7:
-                start_date = (_date.year-1,) + default.start_day
-                end_date = (_date.year,) + default.end_day
-            else:
-                start_date = (_date.year,) + default.start_day
-                end_date = (_date.year+1,) + default.end_day
-            start_date = datetime.datetime(*start_date)
-            end_date = datetime.datetime(*_end_date)
+            _date = year_or_start_date
+            start_date, end_date = self._targetSpanFromDate(_date, config)
         else:
             errmsg = "Invalid type for 'year_or_start_date' argument : %s"
             raise TypeError, errmsg % type(year_or_start_date)
 
-        return start_date, end_date
+        return datetime.datetime(*start_date), datetime.datetime(*end_date)
 
-    def getTargetYear(self, date):
-        return targetYearFromDate(date)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    def getTargetYear(self, date, crop=None, variety=None):
+        return targetYearFromDate(date, crop=None, variety=None)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    def _targetSpanFromDate(self, _date, config):
+        # target_year same year as _date.year
+        if _date.month < config.start_day[0]:
+            start_date = (_date.year-1,) + config.start_day
+            end_date = (_date.year,) + config.end_day
+            return start_date, end_date
+        # target_year potentially the same as _date.year
+        if _date.month == config.start_day[0] \
+        and _date.day < config.start_day[1]: # target_year same as _date.year
+            start_date = (_date.year-1,) + config.start_day
+            end_date = (_date.year,) + config.end_day
+            return start_date, end_date
+        # target_year not the same as _date.year
+        start_date = (_date.year,) + default.start_day
+        end_date = (_date.year+1,) + default.end_day
+        return start_date, end_date
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

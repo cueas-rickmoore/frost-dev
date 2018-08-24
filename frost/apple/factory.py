@@ -12,11 +12,14 @@ from frost.apple.functions import chillFilepath, varietyFilepath
 
 class AppleGridFactory(FrostGridFactory):
 
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def getTargetDateSpan(self, year_or_start_date, variety=None):
-        return FrostGridFactory.getTargetDateSpan(self, year_or_start_date,
+    def getTargetDateSpan(self, year_or_date, variety=None):
+        return FrostGridFactory.getTargetDateSpan(self, year_or_date,
                                                   'apple', variety)
+
+    def getTargetYear(self, date, variety=None):
+        return FrostGridFactory.getTargetyear(self, date, 'apple', variety)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

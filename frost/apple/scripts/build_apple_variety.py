@@ -262,12 +262,14 @@ elif len(args) > 2: # start date specified
 else:
     start_date = datetime.now() - relativedelta(days=options.days_ago)
     end_date = start_date
+target_year = targetYearFromDate(start_date)
+if target_year is None: exit()
 
 log_filepath = options.log_filepath
 if log_filepath is None:
     log_filename = '%%s-apple-variety-%s-build.log' % nameToFilepath(variety)
-    log_filepath = buildLogFilepath(targetYearFromDate(start_date), 'apple',
-                                    log_filename, os.getpid())
+    log_filepath = buildLogFilepath(target_year, 'apple', log_filename,
+                                    os.getpid())
 reporter = Reporter(PID, log_filepath)
 process_server = ProcessServer(reporter, variety, build_grids, draw_maps,
                                debug, test_run)

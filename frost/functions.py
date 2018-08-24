@@ -3,7 +3,8 @@ import os
 
 from copy import deepcopy
 from collections import OrderedDict
-from datetime import datetime
+from datetime import date as datetime_date
+from datetime import datetime as datetime_time
 
 from atmosci.utils.config import ConfigObject
 
@@ -39,29 +40,45 @@ def nameToFilepath(name):
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def seasonDate(target_year, month, day):
-    if month < 7: return datetime(target_year, month, day)
-    else: return datetime(target_year-1, month, day)
+    if month < 7: return datetime_time(target_year, month, day)
+    else: return datetime_time(target_year-1, month, day)
 
-def targetDateSpan(target_year, crop=None, variety=None):
+def targetDateSpan(date_or_year, crop=None, variety=None):
     if crop is not None:
         path = 'crops.%s' % crop 
         if variety is not None:
             path ='%s.variety.%s' % (path, varietyName(variety))
         config = fromConfig(path)
     else: config = fromConfig('default')
+    if isinstance(date_or_year, (datetime_date, datetime_time)):
+        target_year = _targetYearFromDate(date, config)
+    else: target_year = date_or_year
     start_date = (target_year-1,) + config.start_day
-    start_date = datetime(*start_date)
+    start_date = datetime_time(*start_date)
     end_date = (target_year,) + config.end_day
-    end_date = datetime(*end_date)
+    end_date = datetime_time(*end_date)
     return start_date, end_date
 
-def targetYearFromDate(date):
-    if date.month < 7: return date.year
+def targetYearFromDate(date, crop=None, variety=None):
+    if crop is not None:
+        path = 'crops.%s' % crop 
+        if variety is not None:
+            path ='%s.variety.%s' % (path, varietyName(variety))
+        config = fromConfig(path)
+    else: config = fromConfig('default')
+    return _targetYearFromDate(date, config)
+
+def _targetYearFromDate(date, config):
+    start_month = config.start_day[0]
+    if date.month < start_month: return date.year
+    elif date.month == start_month:
+        if date.day < config.start_day[1]: return date.year
+        else: return date.year + 1
     else: return date.year + 1
 
 def timestamp(as_file_path=False):
-    if as_file_path: return datetime.now().strftime('%Y%m%d-%H%M%S')
-    else: return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if as_file_path: return datetime_time.now().strftime('%Y%m%d-%H%M%S')
+    else: return datetime_time.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -81,7 +98,7 @@ def buildLogDir(target_year, crop):
 
 def buildLogFilepath(target_year, crop, filename_template, pid=None):
     if pid is not None:
-        key = '%s-%s' % (datetime.now().strftime('%Y-%m-%d'), str(pid))
+        key = '%s-%s' % (datetime_time.now().strftime('%Y-%m-%d'), str(pid))
     else: key = timestamp().replace(' ','-').replace(':','')
     log_filename = filename_template % key
     return os.path.join(buildLogDir(target_year, crop), log_filename)
@@ -107,7 +124,7 @@ def tempWorkingDir(target_year, test_dir=False):
 
 def tempGridReader(target_year_or_date, test_file=False):
     from frost.temperature import FrostTempFileReader
-    if isinstance(target_year_or_date, datetime):
+    if isinstance(target_year_or_date, datetime_time):
         target_year = targetYearFromDate(target_year_or_date)
     else: target_year = target_year_or_date
     if test_file:
@@ -117,7 +134,7 @@ def tempGridReader(target_year_or_date, test_file=False):
 
 def tempGridManager(target_year_or_date, mode='r', test_file=False):
     from frost.temperature import FrostTempFileManager
-    if isinstance(target_year_or_date, datetime):
+    if isinstance(target_year_or_date, datetime_time):
         target_year = targetYearFromDate(target_year_or_date)
     else: target_year = target_year_or_date
     if test_file:

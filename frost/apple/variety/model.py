@@ -4,6 +4,8 @@ ONE_DAY = relativedelta(days=1)
 
 import numpy as N
 
+from atmosci.utils.timeutils import asDatetimeDate
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class AppleVarietyModelMixin:
@@ -60,9 +62,11 @@ class AppleVarietyModelMixin:
 
         # chill accumulation is cumulative, so we need accumulated GDD for
         # the previous date
-        if start_date > self.start_date:
+        if asDatetimeDate(start_date) > self.start_date:
             prev_gdd = self.getGdd(model_name, lo_gdd_th, hi_gdd_th, prev_day)
-        else: prev_gdd = N.zeros(prev_mask.shape, dtype=int)
+            prev_gdd = prev_gdd.astype(daily_gdd.dtype)
+        else:
+            prev_gdd = N.zeros_like(prev_mask.shape, dtype=daily_gdd.dtype)
 
         # accumulate GDD for this variety/model combination 
         accumulated_gdd = N.zeros_like(daily_gdd)

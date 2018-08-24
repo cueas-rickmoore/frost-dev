@@ -230,10 +230,12 @@ class FrostGridFileManager(FrostGridMixin, Hdf5DateGridFileManager):
         end_date = start_date + relativedelta(days=num_days-1)
         last_date_str = \
         self.getDatasetAttribute(dataset_path, 'last_valid_date', None)
-        if last_date_str is None or end_date > asDatetime(last_date_str):
-            last_date_str = end_date.strftime('%Y-%m-%d')
+        if isinstance(end_date, datetime):
+            end_is_later = end_date > asDatetime(last_date_str)
+        else: end_is_later = asDatetime(end_date) > asDatetime(last_date_str)
+        if last_date_str is None or end_is_later:
             self.setDatasetAttribute(dataset_path, 'last_valid_date',
-                                     last_date_str)
+                                     end_date.strftime('%Y-%m-%d'))
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -23,7 +23,8 @@ def getGddThresholds(options, manager):
         return stringToTuple(options.gdd_thresholds, int)
     else: # no thresholds in options
         # check which GDD thresholds are in the current file
-        if manager is not None: return manager.gddThresholds()
+        if manager is not None:
+            return manager.gddThresholds()
         # use the GDD thresholds in the configuration file
         return fromConfig('crops.apple.gdd_thresholds')
 
@@ -96,6 +97,7 @@ if verbose or test_file:
     print 'start date', start_date
     print 'end date', end_date
     print 'target year', target_year
+if target_year is None: exit()
 
 dates = factory.datesFromDateSpan(start_date, end_date)
 
@@ -134,6 +136,8 @@ maxt_nan_indexes = N.where(N.isnan(maxt))
 
 # get a chill data file manger
 filepath = factory.getChillFilePath(target_year, test_file)
+if verbose:
+    print 'chill file path exists :', os.path.exists(filepath), ':',filepath
 if not os.path.exists(filepath):
     if models in (None, 'all'):
         models = fromConfig('crops.apple.chill.models')
@@ -209,6 +213,7 @@ for model_name in models:
     manager.open('r')
     daily_chill, accumulated_chill = manager.estimateChill(model_name, 
                                                            **chill_kwargs)
+    manager.close()
     # make sure we didn't get bogus chill
     accumulated_chill[maxt_nan_indexes] = N.nan
     daily_chill[maxt_nan_indexes] = N.nan
@@ -234,6 +239,7 @@ for model_name in models:
             # estimate GDD for this low/high threshold combination
             daily_gdd = manager.estimateGDD(low_threshold, high_threshold,
                                             mint, maxt, debug)
+            manager.close()
 
             if update_db:
                 group_name = manager.gddGroupName(low_threshold, high_threshold)

@@ -138,7 +138,8 @@ class PointChillAccumulator(ChillingUnitAccumulator):
 
         for chill_units in daily_chill_units:
             if chill_units > 0 and accumulated < 0: accumulated = chill_units
-            else: accumulated = accumulated + chill_units
+            #if chill_units > 0: accumulated = accumulated + chill_units
+            else: accumulated = 0
 
         return accumulated
 
@@ -214,6 +215,7 @@ class PointsChillAccumulator(PointChillAccumulator):
             self._daily_chill.append(chill_units)
 
             zero_out = N.where((chill_units > 0) & (accumulated < 0))
+            #zero_out = N.where(chill_units < 0)
             if len(zero_out[0]) > 0: accumulated[reset] = 0
             accumulated = accumulated + chill_units
 
@@ -298,6 +300,7 @@ class GridChillAccumulator(PointsChillAccumulator):
         for day in range(num_days):
             chill_units = daily_chill_units[day]
             zero_out = N.where((chill_units > 0) & (accumulation < 0))
+            #zero_out = N.where(chill_units < 0)
             if len(zero_out[0]) > 0: accumulation[zero_out] = 0
             accumulation = accumulation + chill_units
             # save the daily and accumulated chill units to the cache

@@ -60,7 +60,8 @@ class FrostTempFileManager(FrostGridFileManager, FrostTempMixin):
         if filepath is None:
             filepath = tempGridFilepath(target_year)
         FrostGridFileManager.__init__(self, target_year, filepath, mode,
-                                      **kwargs)
+                                      kwargs.get('unpackers',None),
+                                      kwargs.get('packers',None))
 
         self.temp_descriptions = { 'maxt':'Daily maximum temperature',
                                    'mint':'Daily minimum temperature' }
@@ -146,24 +147,28 @@ class FrostTempFileBuilder(FrostTempFileRepair):
         target_year = self._builder_preinit(start_date, end_date)
         if verbose:
             print 'FrostTempFileBuilder.__init__', target_year, start_date, end_date
-        FrostTempFileRepair.__init__(self, target_year, 'w')
+        FrostTempFileRepair.__init__(self, target_year, 'w', **kwargs)
         self._builder_postinit(lons, lats, **kwargs)
 
         # initialize the temperature datasets
-        self.initTempGroups(**kwargs)
+        init_temps = kwargs.get('init_temps', True)
+        if init_temps: self.initTempGroups(**kwargs)
 
         self.open('a')
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def initTempGroups(self, **kwargs):
+    def initTempGroups(self, include_forecast=True, **kwargs):
         # create datasets for observed temperature group
-        temp_attrs = self._resolveTemperatureAttributes_('reported', **kwargs)
+        temp_attrs = \
+            self._resolveTemperatureAttributes_('reported', **kwargs)
         self.initTempDatasets('reported', temp_attrs, **kwargs)
 
         # create datasets for forecast temperature group
-        temp_attrs = self._resolveTemperatureAttributes_('forecast', **kwargs)
-        self.initTempDatasets('forecast', temp_attrs, **kwargs)
+        if include_forecast:
+            temp_attrs = \
+                self._resolveTemperatureAttributes_('forecast', **kwargs)
+            self.initTempDatasets('forecast', temp_attrs, **kwargs)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

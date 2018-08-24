@@ -201,8 +201,8 @@ class AppleVarietyGridManager(AppleGridFileManager, VarietyGridAccessMixin,
 
     def __init__(self, target_year, variety, mode='r', test_file=False,
                        **kwargs):
-        filepath = kwargs.get('filepath', 
-                              varietyFilepath(target_year, variety, test_file))
+        if 'filepath' in kwargs: filepath = kwargs['filepath']
+        else: filepath = varietyFilepath(target_year, variety, test_file)
 
         AppleGridFileManager.__init__(self, target_year, filepath, mode)
 
@@ -426,7 +426,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
     def _initModelGroup(self, model_name, verbose=False):
         group_name = self.modelGroupName(model_name)
         if group_name not in self._group_names:
-            if verbose: print 'creating', group_name
+            print 'creating', group_name, 'group'
             attributes = { 'chill_model' : self.modelName(model_name),
                            'start_date' : asAcisQueryDate(self.start_date),
                            'end_date' : asAcisQueryDate(self.end_date),
@@ -444,7 +444,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
 
         full_path = self.thresholdGroupPath(model_name, lo_gdd_th, hi_gdd_th)
         if full_path not in self._group_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'group'
             gdd_thresholds = '%dF =< AVGT <= %dF' % (lo_gdd_th, hi_gdd_th)
             description = 'Datasets where GDD is based on %s' % gdd_thresholds
             self.open('a')
@@ -488,10 +488,11 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         full_path = self.modelDatasetPath(model_name, lo_gdd_th, hi_gdd_th,
                                           'gdd', 'accumulated')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
+            data = N.full(shape, -32768, '<i2')
             self.open('a')
-            self.createEmptyDataset(full_path, shape, '<i2', -32768,
-                                    chunks=chunks, compression='gzip')
+            self.createDataset(full_path, data, chunks=chunks,
+                               compression='gzip')
             self.close()
             self.open('a')
             description = 'GDD accumulated since minimum chill units were accumulated'
@@ -503,7 +504,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         # create related chill mask
         full_path = full_path.replace('accumulated', 'chill_mask')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
             description = 'Boolean grid where True = minimum chill units were accumulated.'
 
             self.open('a')
@@ -519,7 +520,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         # create related provenance dataset
         full_path = full_path.replace('chill_mask', 'provenance')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
             description = 'Daily GDD Processing Provenance'
             self.open('a')
             self._createEmptyProvenance(full_path, 'stats', verbose)
@@ -539,7 +540,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         # make sure GDD group exists within the model/low/high group 
         full_path = self.modelGroupPath(model_name,lo_gdd_th,hi_gdd_th,'gdd')
         if full_path not in self._group_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'group'
             description = 'Accumlated GDD datasets'
             self.open('a')
             self.createGroup(full_path)
@@ -564,16 +565,17 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         full_path = \
         self.modelDatasetPath(model_name, lo_gdd_th,hi_gdd_th, 'kill','level')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
             description = 'Daily potential kill level'
             levels = { 'Level 0' : 'No kill potential', }
             for level, percent in enumerate(self.variety.kill_levels, start=1):
                 key = 'Level %d' % level
                 levels[key] = 'Potential for %d%% kill' % percent
 
+            data = N.full(shape, -32768, '<i2')
             self.open('a')
-            self.createEmptyDataset(full_path, shape, '<i2', -32768,
-                                    chunks=chunks, compression='gzip')
+            self.createDataset(full_path, data, chunks=chunks, 
+                               compression='gzip')
             self.close()
             self.open('a')
             self._setThresholdAttrs(full_path, model_name, lo_gdd_th, hi_gdd_th,
@@ -584,7 +586,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         # create the kill provenance dataset
         full_path = full_path.replace('level', 'provenance')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
             description = 'Kill processing provenance'
             self.open('a')
             self._createEmptyProvenance(full_path, 'kill', verbose)
@@ -626,7 +628,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         full_path =\
         self.modelDatasetPath(model_name, lo_gdd_th,hi_gdd_th, 'stage','index')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
             description = 'Daily growth stage index'
             stages = { }
             stage_name_map =\
@@ -634,9 +636,10 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
             for stage, stage_name in enumerate(stage_name_map.values()):
                 stages['Stage %d' % stage] = stage_name
 
+            data = N.full(shape, -32768, '<i2')
             self.open('a')
-            self.createEmptyDataset(full_path, shape, '<i2', -32768,
-                                    chunks=chunks, compression='gzip')
+            self.createDataset(full_path, data, chunks=chunks,
+                               compression='gzip')
             self._setThresholdAttrs(full_path, model_name, lo_gdd_th, hi_gdd_th,
                                     description=description)
             self.setDatasetAttributes(full_path, **stages)
@@ -645,12 +648,12 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         # create the stage provenance dataset
         full_path = full_path.replace('index', 'provenance')
         if full_path not in self._dataset_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'dataset'
             description = 'Stage index processing provenance'
             self.open('a')
             self._createEmptyProvenance(full_path, 'stage', verbose)
-            self._setThresholdAttrs(full_path, model_name, lo_gdd_th, hi_gdd_th,
-                                    description=description)
+            self._setThresholdAttrs(full_path, model_name, lo_gdd_th,
+                                    hi_gdd_th, description=description)
             self.close()
 
     def _initStageGroup(self, model_name, lo_gdd_th, hi_gdd_th, verbose=False):
@@ -661,7 +664,7 @@ class AppleVarietyGridBuilder(AppleVarietyGridRepair):
         # make sure kill group exists within the model/low/high group
         full_path = self.modelGroupPath(model_name,lo_gdd_th,hi_gdd_th,'stage')
         if full_path not in self._group_names:
-            if verbose: print 'creating', full_path
+            print 'creating', full_path, 'group'
             description = 'Growth stage datasets'
             self.open('a')
             self.createGroup(full_path, description=description)

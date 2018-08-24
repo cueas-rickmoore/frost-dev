@@ -50,6 +50,7 @@ parser.add_option('-d', action='store_false', dest='download_mint',
                    default=True)
 parser.add_option('-f', action='store_true', dest='forecast', default=False)
 parser.add_option('-g', action='store_false', dest='calc_gdd', default=True)
+parser.add_option('-s', action='store_true', dest='sub_process', default=False)
 parser.add_option('-u', action='store_false', dest='update', default=True)
 parser.add_option('-v', action='store_true', dest='verbose', default=False)
 parser.add_option('-y', action='store_true', dest='test_file', default=False)
@@ -64,9 +65,12 @@ calc_gdd = options.calc_gdd
 debug = options.debug
 download_mint = options.download_mint
 forecast = options.forecast
+sub_process = options.sub_process
 test_file = options.test_file
 verbose = options.verbose or debug
 update_db = options.update
+
+if sub_process: print sys.argv
 
 variety = getAppleVariety(args[0])
 
@@ -102,6 +106,7 @@ else:
     print sys.argv
     errmsg = 'Invalid number of arguments (%d).' % num_args
     raise ValueError, errmsg
+if target_year is None: exit()
 
 # filter annoying numpy warnings
 warnings.filterwarnings('ignore',"All-NaN axis encountered")
@@ -140,6 +145,8 @@ y, x = midpoint
 
 # get mint from temperature file
 temp_reader = factory.getTempGridReader(target_year, test_file)
+if verbose:
+    print 'temps filepath', temp_reader.filepath
 if forecast:
     mint = temp_reader.getTemp('forecast.mint', start_date, end_date)
 else:
@@ -157,6 +164,8 @@ mint_nan_indexes = N.where(N.isnan(mint))
 
 # get a Variety grid manager for the target year
 filepath = factory.getVarietyFilePath(target_year, variety, test_file)
+if verbose:
+    print variety.name, 'filepath', filepath
 if os.path.exists(filepath):
     variety_manager = \
     factory.getVarietyGridManager(target_year, variety, 'a', test_file)
@@ -200,11 +209,11 @@ for model_name in models:
         # calculuate accumulated GDD from daily gdd
         # let GDD manger get accumulated GDD for previous day
         variety_manager.open('r')
-
         # get previously accumulatedg GDD
         accumulated_gdd, chill_mask =\
         variety_manager.accumulateGdd(model_name, lo_gdd_th, hi_gdd_th,
                                       start_date, accumulated_chill, daily_gdd)
+        variety_manager.close()
         # no longer need grid for daily GDD
         del daily_gdd
 

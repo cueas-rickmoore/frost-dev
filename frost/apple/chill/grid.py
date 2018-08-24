@@ -139,11 +139,12 @@ class ChillGridAccessMixin:
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-class AppleChillGridReader(AppleGridFileReader, ChillGridAccessMixin,
-                           AppleChillModelMixin):
+class AppleChillGridReader(AppleChillModelMixin, ChillGridAccessMixin,
+                           AppleGridFileReader):
 
     def __init__(self, target_year, test_file=False, **kwargs):
-        filepath = kwargs.get('filepath', chillFilepath(target_year, test_file))
+        if 'filepath' in kwargs: filepath = kwargs['filepath']
+        else: filepath = chillFilepath(target_year, test_file)
         AppleGridFileReader.__init__(self, target_year, filepath)
 
     # - - - # - - - # - - - # - - - # - - - # - - - # - - - # - - - # - - - #
@@ -159,11 +160,12 @@ class AppleChillGridReader(AppleGridFileReader, ChillGridAccessMixin,
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-class AppleChillGridManager(AppleGridFileManager, ChillGridAccessMixin,
-                            AppleChillModelMixin):
+class AppleChillGridManager(AppleChillModelMixin, ChillGridAccessMixin,
+                            AppleGridFileManager):
 
     def __init__(self, target_year, mode='r', test_file=False, **kwargs):
-        filepath = kwargs.get('filepath', chillFilepath(target_year, test_file))
+        if 'filepath' in kwargs: filepath = kwargs['filepath']
+        else: filepath = chillFilepath(target_year, test_file)
         AppleGridFileManager.__init__(self, target_year, filepath, mode)
 
     # - - - # - - - # - - - # - - - # - - - # - - - # - - - # - - - # - - - #
@@ -207,7 +209,7 @@ class AppleChillGridManager(AppleGridFileManager, ChillGridAccessMixin,
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-class AppleChillGridRepair(AppleChillGridManager, FrostGridBuilderMixin):
+class AppleChillGridRepair(FrostGridBuilderMixin, AppleChillGridManager):
 
     # - - - # - - - # - - - # - - - # - - - # - - - # - - - # - - - # - - - #
 
@@ -283,27 +285,30 @@ class AppleChillGridBuilder(AppleChillGridRepair):
         # make sure there is a daily chill dataset
         dataset_name = self.chillDatasetPath(model_name, 'daily')
         if not self.datasetExists(dataset_name):
+            print 'creating', dataset_name, 'dataset'
             self.open('a')
-            self.createEmptyDataset(dataset_name, shape, '<i2',
-                                    dataset_attrs['missing'],
-                                    chunks=chunks, compression='gzip')
+            data = N.full(shape, dataset_attrs['missing'], '<i2')
+            self.createDataset(dataset_name, data, chunks=chunks,
+                               compression='gzip')
             self.setDatasetAttributes(dataset_name, **dataset_attrs)
             self.close() # saves the initialized dataset to the file
 
         # make sure there is an accumulated chill dataset
         dataset_name = self.chillDatasetPath(model_name, 'accumulated')
         if not self.datasetExists(dataset_name):
+            print 'creating', dataset_name, 'dataset'
             dataset_attrs['description'] = 'Accumulated Chill Units'
             self.open('a')
-            self.createEmptyDataset(dataset_name, shape, '<i2',
-                                    dataset_attrs['missing'],
-                                    chunks=chunks, compression='gzip')
+            data = N.full(shape, dataset_attrs['missing'], '<i2')
+            self.createDataset(dataset_name, data, chunks=chunks,
+                               compression='gzip')
             self.setDatasetAttributes(dataset_name, **dataset_attrs)
             self.close() # saves the initialized dataset to the file
 
         # make sure there is an accumulated chill dataset
         dataset_name = self.chillDatasetPath(model_name, 'provenance')
         if not self.datasetExists(dataset_name):
+            print 'creating', dataset_name, 'dataset'
             description = 'Chill Processing Provencance'
             self.open('a')
             self._createEmptyProvenance(dataset_name, 'accum', description)
@@ -339,6 +344,7 @@ class AppleChillGridBuilder(AppleChillGridRepair):
         # add a gdd dataset for this low/high combination
         dataset_name = '%s.daily' % group_name
         if not self.datasetExists(dataset_name):
+            print 'creating', dataset_name, 'dataset'
             dataset_attrs = \
             self._resolveGddDatasetAttributes_(lo_gdd_th, hi_gdd_th, **kwargs)
             dataset_attrs.update(date_attrs)
@@ -347,16 +353,16 @@ class AppleChillGridBuilder(AppleChillGridRepair):
             chunks = (1,) + self.lons.shape
             num_days = (self.end_date - self.start_date).days + 1
             shape = (num_days,) + self.lons.shape
+            data = N.full(shape, dataset_attrs['missing'], '<i2')
             self.open('a')
-
-            self.createEmptyDataset(dataset_name, shape, '<i2',
-                                    dataset_attrs['missing'],
-                                    chunks=chunks, compression='gzip')
+            self.createDataset(dataset_name, data, chunks=chunks,
+                               compression='gzip')
             self.setDatasetAttributes(dataset_name, **dataset_attrs)
             self.close()
 
             # also add provenance dataset
             dataset_name = '%s.provenance' % group_name
+            print 'creating', dataset_name, 'dataset'
             description = 'Daily GDD Processing Provencance'
             self.open('a')
             self._createEmptyProvenance(dataset_name, 'stats', description)
