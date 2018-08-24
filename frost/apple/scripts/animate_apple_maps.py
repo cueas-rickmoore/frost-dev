@@ -1,4 +1,4 @@
-#! /Users/rem63/venvs/frost/bin/python
+#! /usr/bin/env python
 
 import os, sys
 
