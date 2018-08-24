@@ -82,10 +82,8 @@ class FrostTempFileManager(FrostGridFileManager, FrostTempMixin):
                 date = start_date + relativedelta(days=day)
                 record = generator(date, timestamp, data[day])
                 records.append(record)
-            end_index = start_index + data.shape[0]
         else:
             records = [generator(start_date, timestamp, data),]
-            end_index = None
 
         prov = N.rec.fromrecords(records, shape=(len(records),),
                                  formats=self.provenance.formats.temp,
