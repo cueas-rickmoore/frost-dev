@@ -94,7 +94,7 @@ class AppleChillModelMixin:
         if isinstance(date_arg, datetime): date = date_arg
         else: date = date_arg[0]
         if self.start_date is not None \
-        and asDatetimeDate(date) > self.start_date:
+        and asDatetimeDate(date) > asDatetimeDate(self.start_date):
             previous[0] = self.getChill(model_name, 'accumulated',
                                         start_date=date-ONE_DAY)
 

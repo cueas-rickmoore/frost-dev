@@ -43,7 +43,7 @@ TOOLCFG.datasets = {'data':{'acis_grid':3,
                     'time':{'period':'date','scope':'season','view':'tyx'},
                    }
 
-TOOLCFG.fileattrs= {'data_bbox':'-82.75,37.125,-66.83,47.70',
+TOOLCFG.fileattrs= {'data_bbox':'-82.75,37.125,-66.83,47.708',
                     'node_spacing':0.0416667,
                     'scope':'season',
                     'search_radius':0.03125, 
@@ -55,7 +55,7 @@ TOOLCFG.project = {'end_day':(6,30),
                    'models':('carolina',),
                    'region':'NE',
                    'source':'acis',
-                   'start_day':(9,15),
+                   'start_day':(9,1),
                    'varieties':('empire','mac_geneva','red_delicious'),
                   }
 

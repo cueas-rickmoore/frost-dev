@@ -51,7 +51,7 @@ def targetDateSpan(date_or_year, crop=None, variety=None):
         config = fromConfig(path)
     else: config = fromConfig('default')
     if isinstance(date_or_year, (datetime_date, datetime_time)):
-        target_year = _targetYearFromDate(date, config)
+        target_year = _targetYearFromDate(date_or_year, config)
     else: target_year = date_or_year
     start_date = (target_year-1,) + config.start_day
     start_date = datetime_time(*start_date)
@@ -128,7 +128,7 @@ def tempGridReader(target_year_or_date, test_file=False):
         target_year = targetYearFromDate(target_year_or_date)
     else: target_year = target_year_or_date
     if test_file:
-        filepath = tempGridFilePath(target_year, test_file)
+        filepath = tempGridFilepath(target_year, test_file)
         return FrostTempFileReader(target_year, filepath=filepath)
     else: return FrostTempFileReader(target_year)
 

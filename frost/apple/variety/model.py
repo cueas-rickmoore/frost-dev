@@ -62,7 +62,7 @@ class AppleVarietyModelMixin:
 
         # chill accumulation is cumulative, so we need accumulated GDD for
         # the previous date
-        if asDatetimeDate(start_date) > self.start_date:
+        if asDatetimeDate(start_date) > asDatetimeDate(self.start_date):
             prev_gdd = self.getGdd(model_name, lo_gdd_th, hi_gdd_th, prev_day)
             prev_gdd = prev_gdd.astype(daily_gdd.dtype)
         else:

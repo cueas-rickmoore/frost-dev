@@ -46,8 +46,8 @@ class FrostDataFactory(object):
 
         if isinstance(year_or_start_date, int):
             target_year = year_or_start_date
-            start_date = (target_year-1,) + default.start_day
-            end_date = (target_year,) + default.end_day
+            start_date = (target_year-1,) + config.start_day
+            end_date = (target_year,) + config.end_day
         elif isinstance(year_or_start_date, (tuple,list)):
             _date = datetime.datetime(*year_or_start_date)
             start_date, end_date = self._targetSpanFromDate(_date, config)

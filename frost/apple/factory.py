@@ -19,7 +19,7 @@ class AppleGridFactory(FrostGridFactory):
                                                   'apple', variety)
 
     def getTargetYear(self, date, variety=None):
-        return FrostGridFactory.getTargetyear(self, date, 'apple', variety)
+        return FrostGridFactory.getTargetYear(self, date, 'apple', variety)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

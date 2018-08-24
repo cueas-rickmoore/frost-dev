@@ -9,7 +9,7 @@ from atmosci.utils.timeutils import asAcisQueryDate
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 CONFIG = ConfigObject('config', None, 'crops', 'packers', 'unpackers')
-CONFIG.animate_cmd_path = '/opt/ImageMagick/bin/convert'
+CONFIG.animate_cmd_path = '/opt/local/bin/convert'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
