@@ -4,7 +4,7 @@ import os, sys
 import re
 import warnings
 
-from datetime import datetime
+import datetime
 from dateutil.relativedelta import relativedelta
 ONE_DAY = relativedelta(days=1)
 
@@ -50,7 +50,6 @@ parser.add_option('-d', action='store_false', dest='download_mint',
                    default=True)
 parser.add_option('-f', action='store_true', dest='forecast', default=False)
 parser.add_option('-g', action='store_false', dest='calc_gdd', default=True)
-parser.add_option('-s', action='store_true', dest='sub_process', default=False)
 parser.add_option('-u', action='store_false', dest='update', default=True)
 parser.add_option('-v', action='store_true', dest='verbose', default=False)
 parser.add_option('-y', action='store_true', dest='test_file', default=False)
@@ -65,12 +64,9 @@ calc_gdd = options.calc_gdd
 debug = options.debug
 download_mint = options.download_mint
 forecast = options.forecast
-sub_process = options.sub_process
 test_file = options.test_file
 verbose = options.verbose or debug
 update_db = options.update
-
-if sub_process: print sys.argv
 
 variety = getAppleVariety(args[0])
 
@@ -84,29 +80,34 @@ if num_args == 1:
 elif num_args == 2:
     year = int(args[1])
     month = int(args[2])
-    start_date = datetime(year,month,1)
+    start_date = datetime.datetime(year,month,1)
     last_day = lastDayOfMonth(year, month)
-    end_date = datetime(year, month, last_day)
+    end_date = datetime.datetime(year, month, last_day)
     target_year = factory.getTargetYear(start_date)
 elif num_args in (3,4,6):
     year = int(args[1])
     month = int(args[2])
     day = int(args[3])
-    start_date = datetime(year,month,day)
+    start_date = datetime.datetime(year,month,day)
     if num_args == 3: end_date = None
     elif num_args == 4:
-        end_date = start_date + relativedelta(days=int(args[4])-1)
+        end_date = datetime.datetime(year,month,int(args[4]))
     elif num_args == 6:
         year = int(args[4])
         month = int(args[5])
         day = int(args[6])
-        end_date = datetime(year,month,day)
+        end_date = datetime.datetime(year,month,day)
     target_year = factory.getTargetYear(start_date)
 else:
     print sys.argv
     errmsg = 'Invalid number of arguments (%d).' % num_args
     raise ValueError, errmsg
 if target_year is None: exit()
+
+# in case script goes haywire
+max_valid_date = datetime.date.today() - ONE_DAY
+max_valid_str = max_valid_date.strftime('%Y-%m-%d')
+
 
 # filter annoying numpy warnings
 warnings.filterwarnings('ignore',"All-NaN axis encountered")
@@ -130,6 +131,8 @@ if start_date is None:
     start_date = chill_manager.start_date
     end_date = chill_manager.end_date
 
+print 'start/end date :', start_date, end_date
+
 if options.models is None:
     models = [name.lower() for name in chill_manager.file_chill_models]
 elif options.models == 'all':
@@ -145,8 +148,6 @@ y, x = midpoint
 
 # get mint from temperature file
 temp_reader = factory.getTempGridReader(target_year, test_file)
-if verbose:
-    print 'temps filepath', temp_reader.filepath
 if forecast:
     mint = temp_reader.getTemp('forecast.mint', start_date, end_date)
 else:
@@ -161,11 +162,11 @@ del temp_reader
 
 # need to save the indexes where NANs occur in mint
 mint_nan_indexes = N.where(N.isnan(mint))
+if verbose:
+    print '\n min temp :', mint.shape, ': nans =', len(mint_nan_indexes[0]), 'of ', N.prod(mint.shape)
 
 # get a Variety grid manager for the target year
 filepath = factory.getVarietyFilePath(target_year, variety, test_file)
-if verbose:
-    print variety.name, 'filepath', filepath
 if os.path.exists(filepath):
     variety_manager = \
     factory.getVarietyGridManager(target_year, variety, 'a', test_file)
@@ -177,7 +178,7 @@ else: # create a new Variety grid file
 
 # save the temperature grid to the variety grid file
 variety_manager.close()
-if verbose:
+if debug:
     print 'Min Temp @ in degrees F node[%d,%d] :' % midpoint
     if end_date is None: print mint[y,x]
     else:    print mint[:,y,x]
@@ -194,17 +195,21 @@ for model_name in models:
     accumulated_chill = chill_manager.getChill(model_name, 'accumulated',
                                                start_date, end_date)
     if verbose:
-        print '\nchill accumulation',
-        print accumulated_chill[N.where(accumulated_chill > 0)]
+        num_zeros = len(N.where(accumulated_chill == 0)[0])
+        print '\nchill accumulation :', accumulated_chill.shape, ': zeros =', num_zeros, 'of ', N.prod(accumulated_chill.shape)
+    if debug: print accumulated_chill[N.where(accumulated_chill > 0)], '\n'
 
     #  loop trough all GDD thresholds
     for lo_gdd_th, hi_gdd_th in gdd_thresholds:
+        model_group = '%s.L%dH%d' % (model_name.title(), lo_gdd_th, hi_gdd_th)
+
         # get daily GDD from the chill grid file
         daily_gdd = chill_manager.getGdd(lo_gdd_th, hi_gdd_th,
                                          start_date, end_date)
         if verbose:
-            print '\ndaily GDD (from chill manager)',
-            print accumulated_chill[N.where(accumulated_chill > 0)]
+            num_zeros = len(N.where(daily_gdd == 0)[0])
+            print 'daily_gdd (from chill manager) :', daily_gdd.shape, ': zeros =', num_zeros, 'of ', N.prod(daily_gdd.shape)
+        if debug: print daily_gdd[N.where(accumulated_chill > 0)], '\n'
 
         # calculuate accumulated GDD from daily gdd
         # let GDD manger get accumulated GDD for previous day
@@ -214,51 +219,91 @@ for model_name in models:
         variety_manager.accumulateGdd(model_name, lo_gdd_th, hi_gdd_th,
                                       start_date, accumulated_chill, daily_gdd)
         variety_manager.close()
+
         # no longer need grid for daily GDD
         del daily_gdd
 
         if verbose:
-            print '\nGDD accumulation',
-            print accumulated_gdd[N.where(accumulated_gdd > 0)]
+            num_zeros = len(N.where(accumulated_gdd == 0)[0])
+            print 'accumulated_gdd :', accumulated_gdd.shape, ': zeros =', num_zeros, 'of ', N.prod(accumulated_gdd.shape)
+        if debug:
+            print '\nnodes with GDD accumulation > 0 :',
+            print accumulated_gdd[N.where(accumulated_gdd > 0)], '\n'
 
         if update_db:
+            subgroup = '%s.gdd' % model_group
             variety_manager.open('a')
             variety_manager.updateGdd(model_name, lo_gdd_th, hi_gdd_th,
                                       accumulated_gdd, chill_mask, start_date)
+            last_valid = variety_manager.getDatasetAttribute('%s.accumulated' % subgroup, 'last_valid_date')
             variety_manager.close()
             print 'updated', variety_titled, model_titled, 'accumulated gdd'
 
+            last_valid = datetime.date(*tuple([int(d) for d in last_valid.split('-')]))
+            if last_valid > max_valid_date:
+                variety_manager.open('a')
+                variety_manager.setDatasetAttribute('%s.accumulated' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.setDatasetAttribute('%s.chill_mask' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.setDatasetAttribute('%s.provenance' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.close()
+
         # generate stage grid from accumulated GDD
         stage_grid = variety_manager.gddToStages(accumulated_gdd)
+        if verbose:
+            print '\n', variety_titled, 'stage grid :', stage_grid.shape, 'total nodes =', N.prod(stage_grid.shape)
+            print '            stage  > 0 =', len(N.where(stage_grid > 0)[0])
+            print '            stage == 0 =', len(N.where(stage_grid == 0)[0])
         # no longer need grid for accumulated GDD
         del accumulated_gdd
 
-        if verbose:
-            print '\nstage set to',
+        if debug:
+            print '\nnodes with stage > 0 :'
             print stage_grid[N.where(stage_grid > 0)]
 
         if update_db:
+            subgroup = '%s.stage' % model_group
             variety_manager.open('a')
-            variety_manager.updateStage(model_name, lo_gdd_th, hi_gdd_th,
-                                        stage_grid, start_date)
+            variety_manager.updateStage(model_name, lo_gdd_th, hi_gdd_th, stage_grid, start_date)
+            last_valid = variety_manager.getDatasetAttribute('%s.index' % subgroup, 'last_valid_date')
             variety_manager.close()
             print 'updated', variety_titled, model_titled, 'stage'
+
+            last_valid = datetime.date(*tuple([int(d) for d in last_valid.split('-')]))
+            if last_valid > max_valid_date:
+                variety_manager.open('a')
+                variety_manager.setDatasetAttribute('%s.index' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.setDatasetAttribute('%s.provenance' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.close()
     
         # estimate kill probability from stages and predicted mint
         kill_grid = variety_manager.estimateKill(stage_grid, mint)
+        if verbose:
+            print '\n', variety_titled, 'kill grid :', kill_grid.shape, 'total nodes =', N.prod(kill_grid.shape)
+            print '            kill  > 0 =', len(N.where(kill_grid > 0)[0])
+            print '            kill == 0 =', len(N.where(kill_grid == 0)[0])
         # no longer need stage grid
         del stage_grid
 
-        if verbose:
-            print '\nkill probability',
-            print kill_grid[N.where(kill_grid > 0)]
+        if debug:
+            print '\nnodes with kill probability > 0 :'
+            print kill_grid[N.where(kill_grid > 0)], '\n'
 
         if update_db:
+            subgroup = '%s.kill' % model_group
             variety_manager.open('a')
             variety_manager.updateKill(model_name, lo_gdd_th, hi_gdd_th,
                                        kill_grid, start_date)
+            last_valid = variety_manager.getDatasetAttribute('%s.level' % subgroup, 'last_valid_date')
             variety_manager.close()
             print 'updated', variety_titled, model_titled, 'kill'
+
+            last_valid = datetime.date(*tuple([int(d) for d in last_valid.split('-')]))
+            if last_valid > max_valid_date:
+                variety_manager.open('a')
+                variety_manager.setDatasetAttribute('%s.level' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.setDatasetAttribute('%s.provenance' % subgroup, 'last_valid_date', max_valid_str)
+                variety_manager.close()
+
         # no longer need grid for kill
         del kill_grid
 

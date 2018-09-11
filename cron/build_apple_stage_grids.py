@@ -91,7 +91,7 @@ elif num_args in (3,4,6):
     start_date = datetime.datetime(year,month,day)
     if num_args == 3: end_date = None
     elif num_args == 4:
-        end_date = start_date + relativedelta(days=int(args[4])-1)
+        end_date = datetime.datetime(year,month,int(args[4]))
     elif num_args == 6:
         year = int(args[4])
         month = int(args[5])
@@ -162,6 +162,8 @@ del temp_reader
 
 # need to save the indexes where NANs occur in mint
 mint_nan_indexes = N.where(N.isnan(mint))
+if verbose:
+    print '\n min temp :', mint.shape, ': nans =', len(mint_nan_indexes[0]), 'of ', N.prod(mint.shape)
 
 # get a Variety grid manager for the target year
 filepath = factory.getVarietyFilePath(target_year, variety, test_file)
@@ -176,7 +178,7 @@ else: # create a new Variety grid file
 
 # save the temperature grid to the variety grid file
 variety_manager.close()
-if verbose:
+if debug:
     print 'Min Temp @ in degrees F node[%d,%d] :' % midpoint
     if end_date is None: print mint[y,x]
     else:    print mint[:,y,x]
@@ -193,8 +195,9 @@ for model_name in models:
     accumulated_chill = chill_manager.getChill(model_name, 'accumulated',
                                                start_date, end_date)
     if verbose:
-        print '\nchill accumulation :', accumulated_chill.shape
-        print accumulated_chill[N.where(accumulated_chill > 0)]
+        num_zeros = len(N.where(accumulated_chill == 0)[0])
+        print '\nchill accumulation :', accumulated_chill.shape, ': zeros =', num_zeros, 'of ', N.prod(accumulated_chill.shape)
+    if debug: print accumulated_chill[N.where(accumulated_chill > 0)], '\n'
 
     #  loop trough all GDD thresholds
     for lo_gdd_th, hi_gdd_th in gdd_thresholds:
@@ -204,8 +207,9 @@ for model_name in models:
         daily_gdd = chill_manager.getGdd(lo_gdd_th, hi_gdd_th,
                                          start_date, end_date)
         if verbose:
-            print '\ndaily_gdd (from chill manager) :', daily_gdd.shape
-            print daily_gdd[N.where(accumulated_chill > 0)]
+            num_zeros = len(N.where(daily_gdd == 0)[0])
+            print 'daily_gdd (from chill manager) :', daily_gdd.shape, ': zeros =', num_zeros, 'of ', N.prod(daily_gdd.shape)
+        if debug: print daily_gdd[N.where(accumulated_chill > 0)], '\n'
 
         # calculuate accumulated GDD from daily gdd
         # let GDD manger get accumulated GDD for previous day
@@ -220,8 +224,11 @@ for model_name in models:
         del daily_gdd
 
         if verbose:
+            num_zeros = len(N.where(accumulated_gdd == 0)[0])
+            print 'accumulated_gdd :', accumulated_gdd.shape, ': zeros =', num_zeros, 'of ', N.prod(accumulated_gdd.shape)
+        if debug:
             print '\nnodes with GDD accumulation > 0 :',
-            print accumulated_gdd[N.where(accumulated_gdd > 0)]
+            print accumulated_gdd[N.where(accumulated_gdd > 0)], '\n'
 
         if update_db:
             subgroup = '%s.gdd' % model_group
@@ -242,10 +249,14 @@ for model_name in models:
 
         # generate stage grid from accumulated GDD
         stage_grid = variety_manager.gddToStages(accumulated_gdd)
+        if verbose:
+            print '\n', variety_titled, 'stage grid :', stage_grid.shape, 'total nodes =', N.prod(stage_grid.shape)
+            print '            stage  > 0 =', len(N.where(stage_grid > 0)[0])
+            print '            stage == 0 =', len(N.where(stage_grid == 0)[0])
         # no longer need grid for accumulated GDD
         del accumulated_gdd
 
-        if verbose:
+        if debug:
             print '\nnodes with stage > 0 :'
             print stage_grid[N.where(stage_grid > 0)]
 
@@ -266,12 +277,16 @@ for model_name in models:
     
         # estimate kill probability from stages and predicted mint
         kill_grid = variety_manager.estimateKill(stage_grid, mint)
+        if verbose:
+            print '\n', variety_titled, 'kill grid :', kill_grid.shape, 'total nodes =', N.prod(kill_grid.shape)
+            print '            kill  > 0 =', len(N.where(kill_grid > 0)[0])
+            print '            kill == 0 =', len(N.where(kill_grid == 0)[0])
         # no longer need stage grid
         del stage_grid
 
-        if verbose:
+        if debug:
             print '\nnodes with kill probability > 0 :'
-            print kill_grid[N.where(kill_grid > 0)]
+            print kill_grid[N.where(kill_grid > 0)], '\n'
 
         if update_db:
             subgroup = '%s.kill' % model_group

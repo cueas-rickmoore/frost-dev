@@ -1,4 +1,4 @@
-#! /Users/rem63/venvs/frost/bin/python
+#! /Volumes/projects/venvs/frost/bin/python
 
 import os, sys
 from copy import copy
@@ -22,7 +22,6 @@ PID = 'PID %d' % os.getpid()
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-#CRON_SCRIPT_DIR = '/Users/rrem63/venvs/frost/cron'
 CRON_SCRIPT_DIR = os.path.split(os.path.abspath(sys.argv[0]))[0]
 ONE_DAY = relativedelta(days=1)
 PYTHON_EXECUTABLE = sys.executable
@@ -57,7 +56,7 @@ class ProcessServer(object):
         self.debug = debug
         self.plot_days = plot_days
         self.plot_location = ' -c %s' % plot_coords
-        self.relative_plot_days = relativedelta(days=plot_days)
+        self.relative_plot_days = relativedelta(days=plot_days-1)
         self.reporter = reporter
         self.season_start = season_start
         self.target_year = targetYearFromDate(season_start)
@@ -239,14 +238,22 @@ class ProcessServer(object):
         if self.test_run: return DummyProcess()
 
         # test that enough days have elapsed to draw a reasonable plot
-        if (self.frost_date - self.season_start).days < self.plot_days: 
-            return DummyProcess() # not enough days
+        available_days = (self.frost_date - self.season_start).days + 1
+        if available_days >= self.plot_days:
+            plot_start_date = self.frost_date - self.relative_plot_days
+            plot_end_date = self.frost_date
+        # not enough days, do it if we have at least 7 days
+        elif available_days >= 7:
+            plot_start_date = self.season_start
+            plot_end_date = self.season_start + self.relative_plot_days
+        # too early to plot
+        else:
+            return DummyProcess()
 
         script = 'plot_grape_hardiness_vs_temp.py'
         args = '%s' % variety_name
-        plot_start_date = self.frost_date - self.relative_plot_days
         args += plot_start_date.strftime(' %Y %m %d')
-        args += ' %s' % self.frost_date_arg
+        args += ' %s' % plot_end_date.strftime(' %Y %m %d')
         args += self.plot_location
         if self.debug: args += ' -z'
         return self.runSubprocess(script, args)
@@ -314,7 +321,9 @@ draw_plots = options.draw_plots
 num_days = options.num_days
 plot_days = options.plot_days
 plot_coords = options.plot_coords
-publish_maps = options.publish_maps
+if draw_plots:
+    publish_maps = options.publish_maps
+else: publish_maps = False
 
 debug = options.debug
 test_run = options.test_run
@@ -355,12 +364,19 @@ elif num_date_args == 1:
     end_date = datetime(target_year, *GRAPE.end_day)
     if end_date > datetime.now():
         end_date = datetime.now() - ONE_DAY
-elif num_date_args in (3,6):
+elif num_date_args in (3,4,5,6):
     year = int(args[0])
     month = int(args[1])
     day = int(args[2])
     start_date = datetime(year,month,day)
-    if num_date_args == 6:
+    if num_date_args == 4:
+        day = int(args[3])
+        end_date = datetime(year,month,day)
+    elif num_date_args == 5:
+        month = int(args[3])
+        day = int(args[4])
+        end_date = datetime(year,month,day)
+    elif num_date_args == 6:
         year = int(args[3])
         month = int(args[4])
         day = int(args[5])
@@ -370,18 +386,45 @@ else:
     errmsg = 'Invalid number of date arguments (%d).' % num_date_args
     raise ValueError, errmsg
 
+if target_year is None: target_year = targetYearFromDate(start_date)
+season_start = datetime(target_year-1, *GRAPE.start_day)
+season_end = datetime(target_year, *GRAPE.end_day)
+
 if end_date is None:
     if num_days == 1: end_date = start_date
     else: end_date = start_date + relativedelta(days=num_days-1)
-
-if target_year is None: target_year = targetYearFromDate(start_date)
-season_start = datetime(target_year-1, *GRAPE.start_day)
 
 log_filepath = options.log_filepath
 if log_filepath is None:
     log_filepath = buildLogFilepath(target_year, 'grape',
                                     '%s-grape-daily-build.log', os.getpid())
 reporter = Reporter(PID, log_filepath)
+
+if debug:
+    print "CRON_SCRIPT_DIR :", CRON_SCRIPT_DIR
+    print "season start :", season_start
+    print "season end :", season_end
+    print "start date :", start_date
+    print "end date :", end_date
+    print "num days :", num_days
+
+if start_date > season_end:
+    msg = 'Season for %d ended on %s. Daily grape build was not run.'
+    info = msg % (target_year, season_end.strftime('%B %d'))
+    reporter.logInfo(info)
+    reporter.reportInfo(info)
+    os._exit(0)
+elif start_date < season_start:
+    start_date = season_start
+    msg = 'Start date adjusted to season start date : %s'
+    print msg % start_date.strftime('%B %d, %Y')
+
+if end_date > season_end:
+    end_date = season_end
+    msg = 'End date for this run adjusted to season end date : %s'
+    info = msg % end_date.strftime('%B %d, %Y')
+    reporter.logInfo(info)
+    reporter.reportInfo(info)
 
 if download_temps or build_grids or draw_plots: 
     process_server = ProcessServer(reporter, season_start, download_temps,

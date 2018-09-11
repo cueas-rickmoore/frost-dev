@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 from atmosci.utils.report import Reporter
 
 from frost.functions import fromConfig, buildLogFilepath 
-from frost.functions import seasonDate, targetYearFromDate
+from frost.functions import seasonDate, targetYearFromDate, targetDateSpan
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -71,11 +71,10 @@ class ProcessServer(object):
         for variety in varieties:
             if publish_maps:
                 scripts.append( ('publish_maps', (variety, 'carolina')) )
+                scripts.append( ('animate', (variety, 'carolina', 'kill')) )
+                scripts.append( ('animate', (variety, 'carolina', 'stage')) )
+                scripts.append( ('animate', (variety, 'carolina', 'gdd')) )
             for model in chill_models:
-                if publish_maps:
-                    scripts.append( ('animate', (variety, model, 'kill')) )
-                    scripts.append( ('animate', (variety, model, 'stage')) )
-                    scripts.append( ('animate', (variety, model, 'gdd')) )
                 if draw_maps:
                     scripts.append( ('kill_map', (variety, model)) )
                     scripts.append( ('stage_map', (variety, model)) )
@@ -99,10 +98,12 @@ class ProcessServer(object):
         self.frost_date = date
         self.frost_date_arg = date.strftime('%Y %m %d')
         self.frost_date_str = date.strftime('%B %d, %Y')
-        self.temp_date = date + ONE_DAY
+        #self.temp_date = date + ONE_DAY
+        self.temp_date = self.frost_date
+        self.temp_date_str = self.frost_date_str
         self.process_queue = list(self.all_scripts)
         if debug:
-            print '\nrun process queue', self.frost_date_arg
+            print '\nrun process queue', self.frost_date_arg,
             print self.process_queue
 
         keep_on_trucking = True
@@ -197,7 +198,7 @@ class ProcessServer(object):
     def initiateDrawChillMaps(self, model):
         if self.debug:
             date = self.frost_date_str
-            print '\ninitiateDrawChillMaps', variety, date
+            print '\ninitiateDrawChillMaps', model, date
             self.reporter.logInfo(CALL_MSG % ('initiateDrawChillMaps', date))
         if self.test_run: return DummyProcess()
         script = 'draw_apple_chill_maps.py'
@@ -309,10 +310,13 @@ options, args = parser.parse_args()
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 build_grids = options.build_grids
+days_ago = options.days_ago
 download_temps = options.download_temps
 draw_maps = options.draw_maps
 num_days = options.num_days
-publish_maps = options.publish_maps
+if draw_maps:
+    publish_maps = options.publish_maps
+else: publish_maps = False
 
 debug = options.debug
 test_run = options.test_run
@@ -343,13 +347,21 @@ else:
 end_date = None 
 num_date_args = len(args)
 if num_date_args == 0:
-    start_date = datetime.now() - relativedelta(days=options.days_ago)
-elif num_date_args in (3,6):
+    #start_date = datetime.now() - relativedelta(days=days_ago)
+    start_date = datetime.now()
+elif num_date_args in (3,4,5,6):
     year = int(args[0])
     month = int(args[1])
     day = int(args[2])
     start_date = datetime(year,month,day)
-    if num_date_args == 6:
+    if num_date_args == 4:
+        day = int(args[3])
+        end_date = datetime(year,month,day)
+    elif num_date_args == 5:
+        month = int(args[3])
+        day = int(args[4])
+        end_date = datetime(year,month,day)
+    elif num_date_args == 6:
         year = int(args[3])
         month = int(args[4])
         day = int(args[5])
@@ -358,11 +370,14 @@ else:
     print sys.argv
     errmsg = 'Invalid number of date arguments (%d).' % num_date_args
     raise ValueError, errmsg
-target_year = targetYearFromDate(start_date)
-if target_year is None: exit()
+target_year = targetYearFromDate(start_date, 'apple')
+season_start, season_end = targetDateSpan(target_year, 'apple')
 
+if start_date > season_end: sys.exit(0)
 if end_date is None:
     end_date = start_date + relativedelta(days=num_days-1)
+if end_date <= season_start: sys.exit(0)
+if start_date < season_start: start_date = season_start
 
 log_filepath = options.log_filepath
 if log_filepath is None:

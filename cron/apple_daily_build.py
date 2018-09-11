@@ -349,12 +349,19 @@ num_date_args = len(args)
 if num_date_args == 0:
     #start_date = datetime.now() - relativedelta(days=days_ago)
     start_date = datetime.now()
-elif num_date_args in (3,6):
+elif num_date_args in (3,4,5,6):
     year = int(args[0])
     month = int(args[1])
     day = int(args[2])
     start_date = datetime(year,month,day)
-    if num_date_args == 6:
+    if num_date_args == 4:
+        day = int(args[3])
+        end_date = datetime(year,month,day)
+    elif num_date_args == 5:
+        month = int(args[3])
+        day = int(args[4])
+        end_date = datetime(year,month,day)
+    elif num_date_args == 6:
         year = int(args[3])
         month = int(args[4])
         day = int(args[5])
